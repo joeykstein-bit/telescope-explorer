@@ -237,6 +237,44 @@
     white-space:nowrap;
   }
 
+  .zoom-control{
+    position:absolute;
+    right:18px;
+    bottom:18px;
+    z-index:10;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:rgba(18,26,41,0.82);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:6px 10px;
+  }
+  .zoom-btn{
+    width:20px;
+    height:20px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:none;
+    border:none;
+    border-radius:50%;
+    color:var(--text-muted);
+    font-size:15px;
+    line-height:1;
+    cursor:pointer;
+  }
+  .zoom-btn:hover{ color:var(--text); background:var(--surface-2); }
+  .zoom-btn:focus-visible{ outline:2px solid var(--focus); outline-offset:1px; }
+  .zoom-slider{
+    width:90px;
+    accent-color:var(--accent);
+    cursor:pointer;
+  }
+
   /* ---------- space view (orbital diagram) ---------- */
   .space-wrap{
     position:relative;
@@ -787,6 +825,11 @@
       <canvas id="globe"></canvas>
       <div class="markers" id="markers"></div>
       <div class="hint">Drag to rotate &nbsp;&middot;&nbsp; click a marker for details</div>
+      <div class="zoom-control" id="zoomControl">
+        <button type="button" class="zoom-btn" id="zoomOutBtn" aria-label="Zoom out">&minus;</button>
+        <input type="range" id="zoomSlider" class="zoom-slider" min="1" max="4" step="0.05" value="1" aria-label="Globe zoom">
+        <button type="button" class="zoom-btn" id="zoomInBtn" aria-label="Zoom in">+</button>
+      </div>
     </div>
 
     <div class="space-wrap" id="spaceWrap">
@@ -1415,6 +1458,7 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
   var ctx = canvas.getContext('2d');
   var markersEl = document.getElementById('markers');
   var R = 0, cx = 0, cy = 0, dpr = Math.max(1, window.devicePixelRatio||1);
+  var baseR = 0, zoom = 1;
 
   function resize(){
     var w = wrap.clientWidth, h = wrap.clientHeight;
@@ -1425,8 +1469,13 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     markersEl.style.left = ((w-size)/2)+'px';
     markersEl.style.top = ((h-size)/2)+'px';
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    R = size/2 - 2;
+    baseR = size/2 - 2;
     cx = size/2; cy = size/2;
+    applyZoom();
+  }
+
+  function applyZoom(){
+    R = baseR * zoom;
   }
 
   /* ---------------- topography stipple (precomputed once) ---------------- */
@@ -1718,6 +1767,7 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
   var dragging = false, lastX=0, lastY=0, lastT=0, moved=false;
 
   function pointerDown(e){
+    if (e.target.closest('.zoom-control')) return;
     dragging = true; userInteracted = true; vel.yaw = 0; vel.pitch = 0; moved = false;
     wrap.classList.add('dragging');
     var p = (e.touches ? e.touches[0] : e);
@@ -1747,6 +1797,23 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
   wrap.addEventListener('touchstart', pointerDown, {passive:true});
   window.addEventListener('touchmove', pointerMove, {passive:false});
   window.addEventListener('touchend', pointerUp);
+
+  /* ---------------- zoom ---------------- */
+
+  var ZOOM_MIN = 1, ZOOM_MAX = 4, ZOOM_STEP = 0.25;
+  var zoomSlider = document.getElementById('zoomSlider');
+  var zoomInBtn = document.getElementById('zoomInBtn');
+  var zoomOutBtn = document.getElementById('zoomOutBtn');
+
+  function setZoom(z){
+    zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+    zoomSlider.value = String(zoom);
+    applyZoom();
+  }
+
+  zoomSlider.addEventListener('input', function(){ setZoom(parseFloat(zoomSlider.value)); });
+  zoomInBtn.addEventListener('click', function(){ setZoom(zoom + ZOOM_STEP); });
+  zoomOutBtn.addEventListener('click', function(){ setZoom(zoom - ZOOM_STEP); });
 
   /* ---------------- animation loop ---------------- */
 
