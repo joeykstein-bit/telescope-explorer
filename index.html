@@ -1,4 +1,5 @@
-<!doctype removed-by-wrapper>
+<!doctype html>
+<meta charset="utf-8">
 <title>Telescope Explorer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -24,6 +25,10 @@
     --c-gamma:#a866cf;
     --c-submm:#2fb6a8;
     --c-gravwave:#8a99b3;
+    --c-xray:#6fcfe8;
+
+    --discovery:#ffe14d;
+    --discovery-text:#4a3c00;
 
     --serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', 'Noto Serif', serif;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -65,7 +70,8 @@
     display:flex;
     align-items:baseline;
     gap:12px;
-    flex-wrap:wrap;
+    flex-wrap:nowrap;
+    min-width:0;
   }
   .wordmark h1{
     font-family:var(--serif);
@@ -75,7 +81,8 @@
     letter-spacing:0.2px;
     margin:0;
     color:var(--text);
-    text-wrap:balance;
+    white-space:nowrap;
+    flex-shrink:0;
   }
   .wordmark .tag{
     font-family:var(--mono);
@@ -85,16 +92,47 @@
     color:var(--text-faint);
     border-left:1px solid var(--border);
     padding-left:12px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    min-width:0;
   }
+  .wordmark .tag#todayTag{ color:var(--text-muted); }
   .stats{
     font-family:var(--mono);
     font-size:12px;
     color:var(--text-muted);
     letter-spacing:0.02em;
+    white-space:nowrap;
     font-variant-numeric:tabular-nums;
     text-align:right;
   }
   .stats b{ color:var(--accent); font-weight:600; }
+
+  .view-toggle{
+    display:flex;
+    gap:2px;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:2px;
+    flex-shrink:0;
+  }
+  .view-btn{
+    background:none;
+    border:none;
+    color:var(--text-muted);
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    padding:6px 14px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .view-btn:hover{ color:var(--text); }
+  .view-btn[aria-pressed="true"]{ background:var(--accent-soft); color:var(--accent); }
+  .view-btn:focus-visible{ outline:2px solid var(--focus); outline-offset:-1px; }
 
   /* ---------- stage ---------- */
   .stage{
@@ -130,16 +168,25 @@
 
   .marker{
     position:absolute;
-    width:9px;
-    height:9px;
-    margin:-4.5px 0 0 -4.5px;
+    appearance:none;
+    -webkit-appearance:none;
+    padding:0;
+    width:4.5px;
+    height:4.5px;
+    margin:-2.25px 0 0 -2.25px;
     border-radius:50%;
-    border:1.3px solid rgba(255,255,255,0.72);
+    border:0.9px solid rgba(255,255,255,0.72);
     box-shadow:0 0 0 1px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.5);
     pointer-events:auto;
     cursor:pointer;
     transition:transform 120ms ease, box-shadow 120ms ease;
     will-change:transform;
+  }
+  .marker-space{
+    width:5.85px;
+    height:5.85px;
+    margin:-2.925px 0 0 -2.925px;
+    border-width:1.17px;
   }
   .marker:hover, .marker:focus-visible{
     transform:scale(1.6);
@@ -151,6 +198,17 @@
     transform:scale(1.7);
     box-shadow:0 0 0 2px var(--accent), 0 0 12px 3px rgba(224,168,62,0.55);
     z-index:6;
+  }
+  .marker.discovery{
+    box-shadow:0 0 0 1.6px var(--discovery), 0 0 8px 2px rgba(255,225,77,0.65);
+    animation:discoveryPulse 2.2s ease-in-out infinite;
+  }
+  .marker.discovery.active{
+    box-shadow:0 0 0 2px var(--accent), 0 0 0 4.5px var(--discovery), 0 0 12px 3px rgba(224,168,62,0.55);
+  }
+  @keyframes discoveryPulse{
+    0%, 100%{ box-shadow:0 0 0 1.6px var(--discovery), 0 0 6px 1px rgba(255,225,77,0.55); }
+    50%{ box-shadow:0 0 0 1.6px var(--discovery), 0 0 11px 4px rgba(255,225,77,0.85); }
   }
   .marker[data-hidden="1"]{
     display:none;
@@ -170,6 +228,172 @@
     opacity:0.9;
     text-align:center;
     white-space:nowrap;
+  }
+
+  /* ---------- space view (orbital diagram) ---------- */
+  .space-wrap{
+    position:relative;
+    flex:1;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+  body[data-view="space"] .space-wrap{ display:flex; }
+  body[data-view="space"] .globe-wrap{ display:none; }
+  .space-wrap svg{
+    display:block;
+    width:100%;
+    height:100%;
+  }
+  .orbit-ring{
+    fill:none;
+    stroke:rgba(143,160,184,0.28);
+    stroke-width:1;
+    stroke-dasharray:2.5 4;
+  }
+  .orbit-link{
+    fill:none;
+    stroke:rgba(143,160,184,0.22);
+    stroke-width:1;
+    stroke-dasharray:1.5 3.5;
+  }
+  .orbit-label{
+    font-family:var(--mono);
+    font-size:9.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    fill:var(--text-faint);
+  }
+  .space-caption{
+    position:absolute;
+    left:50%;
+    top:14px;
+    transform:translateX(-50%);
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    opacity:0.85;
+  }
+
+  /* ---------- list view (alphabetical browse) ---------- */
+  .list-view{
+    flex:1;
+    min-height:0;
+    display:none;
+    flex-direction:column;
+    padding:18px 28px;
+    gap:12px;
+  }
+  body[data-view="list"] .list-view{ display:flex; }
+  body[data-view="list"] .globe-wrap{ display:none; }
+  body[data-view="list"] .stage{ flex-direction:column; }
+  body[data-view="list"] .legend{
+    position:relative;
+    top:auto; left:auto; right:auto;
+    width:auto;
+    margin:18px 28px 0;
+    flex-shrink:0;
+  }
+  body[data-view="list"] .legend h2{ margin-bottom:6px; }
+  body[data-view="list"] .legend .grid-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  body[data-view="list"] .chip{
+    width:auto;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:5px 12px 5px 8px;
+  }
+  body[data-view="list"] .chip .count{ margin-left:1px; }
+  body[data-view="list"] .legend-actions{ max-width:180px; }
+
+  .list-search-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-shrink:0;
+  }
+  .list-search{
+    flex:1;
+    background:var(--surface);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:14px;
+    padding:10px 14px;
+    border-radius:8px;
+  }
+  .list-search::placeholder{ color:var(--text-faint); }
+  .list-search:focus{ outline:2px solid var(--focus); outline-offset:-1px; border-color:var(--focus); }
+  .list-count{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-faint);
+    white-space:nowrap;
+    flex-shrink:0;
+    font-variant-numeric:tabular-nums;
+  }
+  .list-scroll{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    border:1px solid var(--border-soft);
+    border-radius:10px;
+    background:var(--surface);
+  }
+  .list-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    border-bottom:1px solid var(--border-soft);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:13.5px;
+    padding:10px 16px;
+    cursor:pointer;
+  }
+  .list-row:last-child{ border-bottom:none; }
+  .list-row:hover, .list-row:focus-visible{ background:var(--surface-2); outline:none; }
+  .list-row.active{ background:var(--accent-soft); }
+  .list-row .swatch{
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    border:1.2px solid rgba(255,255,255,0.55);
+    flex-shrink:0;
+  }
+  .list-row .rname{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .list-row .ddot{
+    width:7px; height:7px; border-radius:50%; flex-shrink:0;
+    background:var(--discovery);
+    box-shadow:0 0 0 1px rgba(0,0,0,0.35), 0 0 5px 1px rgba(255,225,77,0.75);
+  }
+  .list-row .rloc{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-faint);
+    flex-shrink:0;
+    max-width:38%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .list-empty{
+    padding:32px;
+    text-align:center;
+    color:var(--text-faint);
+    font-size:13px;
+    font-family:var(--mono);
   }
 
   /* ---------- legend ---------- */
@@ -253,6 +477,55 @@
   }
   .legend-actions button:hover{ color:var(--text); border-color:var(--text-faint); }
 
+  .legend-discoveries{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px solid var(--border-soft);
+  }
+  .discovery-toggle{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    width:100%;
+    background:none;
+    border:1px solid var(--border);
+    color:var(--text-muted);
+    font-family:var(--sans);
+    font-size:12px;
+    padding:7px 8px;
+    border-radius:6px;
+    cursor:pointer;
+    text-align:left;
+    transition:background 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+  .discovery-toggle:hover{ border-color:var(--text-faint); color:var(--text); }
+  .discovery-toggle:focus-visible{ outline:2px solid var(--focus); outline-offset:-1px; }
+  .discovery-toggle .dot{
+    width:9px; height:9px; border-radius:50%; flex-shrink:0;
+    background:var(--discovery);
+    box-shadow:0 0 0 1px rgba(0,0,0,0.35), 0 0 6px 1px rgba(255,225,77,0.7);
+  }
+  .discovery-toggle .label{ flex:1; line-height:1.3; }
+  .discovery-toggle .count{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-faint);
+    font-variant-numeric:tabular-nums;
+  }
+  .discovery-toggle[aria-pressed="true"]{
+    background:rgba(255,225,77,0.14);
+    border-color:var(--discovery);
+    color:var(--text);
+  }
+  .discovery-status{
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:0.03em;
+    color:var(--text-faint);
+    margin-top:7px;
+    line-height:1.5;
+  }
+
   /* ---------- detail panel ---------- */
   .detail{
     position:absolute;
@@ -327,8 +600,21 @@
   .detail-loc{
     font-size:13px;
     color:var(--text-muted);
-    margin:0 0 20px;
+    margin:0 0 10px;
   }
+  .detail-site{
+    display:flex;
+    width:fit-content;
+    align-items:center;
+    gap:5px;
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--accent);
+    text-decoration:none;
+    margin:0 0 20px;
+    border-bottom:1px solid rgba(224,168,62,0.4);
+  }
+  .detail-site:hover{ border-color:var(--accent); }
   .specs{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -362,6 +648,58 @@
     max-width:60ch;
   }
 
+  .detail-discovery{
+    margin-top:22px;
+    padding:14px 16px;
+    background:rgba(255,225,77,0.08);
+    border:1px solid rgba(255,225,77,0.4);
+    border-radius:8px;
+    max-width:60ch;
+  }
+  .detail-discovery .dh{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--discovery);
+    margin-bottom:8px;
+  }
+  .detail-discovery .dh .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--discovery);
+    box-shadow:0 0 6px 1px rgba(255,225,77,0.7);
+  }
+  .detail-discovery .dtitle{
+    font-size:14px;
+    font-weight:600;
+    color:var(--text);
+    margin:0 0 6px;
+    line-height:1.4;
+  }
+  .detail-discovery p{
+    font-size:13px;
+    line-height:1.6;
+    color:#c7d0e0;
+    margin:0 0 10px;
+  }
+  .detail-discovery a{
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--discovery);
+    text-decoration:none;
+    border-bottom:1px solid rgba(255,225,77,0.5);
+  }
+  .detail-discovery a:hover{ border-color:var(--discovery); }
+  .detail-discovery .ddate{
+    font-family:var(--mono);
+    font-size:10px;
+    color:var(--text-faint);
+    margin-top:8px;
+  }
+
   /* ---------- backdrop for mobile sheet ---------- */
   .backdrop{
     position:absolute;
@@ -375,7 +713,7 @@
   .backdrop.show{ opacity:1; pointer-events:auto; }
 
   @media (max-width: 760px){
-    .topbar{ padding:16px 16px 12px; }
+    .topbar{ padding:16px 16px 12px; flex-wrap:wrap; row-gap:10px; }
     .wordmark h1{ font-size:21px; }
     .wordmark .tag{ display:none; }
     .legend{ width:auto; left:12px; right:12px; top:12px; }
@@ -383,6 +721,9 @@
       display:grid;
       grid-template-columns:1fr 1fr;
     }
+    body[data-view="list"] .legend{ margin:12px 12px 0; }
+    .list-view{ padding:16px; }
+    .list-row .rloc{ display:none; }
     .detail{
       top:auto;
       left:0;
@@ -402,6 +743,7 @@
 
   @media (prefers-reduced-motion: reduce){
     .marker, .detail{ transition:none; }
+    .marker.discovery{ animation:none; }
   }
 </style>
 
@@ -410,6 +752,12 @@
     <div class="wordmark">
       <h1>Telescope&nbsp;Explorer</h1>
       <span class="tag">Observatories of the world</span>
+      <span class="tag" id="todayTag"></span>
+    </div>
+    <div class="view-toggle" role="group" aria-label="View mode">
+      <button type="button" class="view-btn" id="viewSpaceBtn" aria-pressed="false">Space</button>
+      <button type="button" class="view-btn" id="viewGlobeBtn" aria-pressed="true">Globe</button>
+      <button type="button" class="view-btn" id="viewListBtn" aria-pressed="false">List</button>
     </div>
     <div class="stats" id="stats"></div>
   </header>
@@ -421,6 +769,13 @@
       <div class="hint">Drag to rotate &nbsp;&middot;&nbsp; click a marker for details</div>
     </div>
 
+    <div class="space-wrap" id="spaceWrap">
+      <svg id="spaceSvg" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+      <div class="markers" id="spaceMarkers"></div>
+      <div class="space-caption">Schematic orbits &middot; not to scale</div>
+      <div class="hint">Click a marker for details</div>
+    </div>
+
     <nav class="legend" aria-label="Filter by observing spectrum">
       <h2>Observing spectrum</h2>
       <div class="grid-chips" id="chips"></div>
@@ -428,7 +783,24 @@
         <button type="button" id="btnAll">All</button>
         <button type="button" id="btnNone">None</button>
       </div>
+      <div class="legend-discoveries">
+        <h2>Recent discoveries</h2>
+        <button type="button" class="discovery-toggle" id="discoveryToggle" aria-pressed="false">
+          <span class="dot"></span>
+          <span class="label">Only show recent discoveries</span>
+          <span class="count" id="discoveryCount">0</span>
+        </button>
+        <div class="discovery-status" id="discoveryStatus">Checking for new discoveries&hellip;</div>
+      </div>
     </nav>
+
+    <section class="list-view" id="listView" aria-label="Browse observatories alphabetically">
+      <div class="list-search-row">
+        <input type="text" id="listSearch" class="list-search" placeholder="Search by name or location&hellip;" autocomplete="off">
+        <span class="list-count" id="listCount"></span>
+      </div>
+      <div class="list-scroll" id="listScroll"></div>
+    </section>
 
     <div class="backdrop" id="backdrop"></div>
 
@@ -452,6 +824,7 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     visible:   { label:"Visible light",         color:"var(--c-visible)",   hex:"#3f7fe0" },
     infrared:  { label:"Infrared",              color:"var(--c-infrared)",  hex:"#e2483a" },
     gamma:     { label:"Gamma-ray",             color:"var(--c-gamma)",     hex:"#a866cf" },
+    xray:      { label:"X-ray",                 color:"var(--c-xray)",      hex:"#6fcfe8" },
     particle:  { label:"Particles (neutrino / cosmic ray)", color:"var(--c-particle)", hex:"#9a6a3f" },
     gravwave:  { label:"Gravitational waves",   color:"var(--c-gravwave)",  hex:"#8a99b3" }
   };
@@ -557,7 +930,7 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     { name:"Holmdel Horn Antenna", loc:"Holmdel, New Jersey, USA", lat:40.3878, lon:-74.1802, cat:"radio",
       type:"Horn antenna", aperture:"6 m horn", built:"1959",
       text:"This unassuming horn-shaped antenna was built for satellite communication, but in 1964 Arno Penzias and Robert Wilson used it to detect a faint, uniform hiss coming from every direction in the sky. That signal turned out to be the cosmic microwave background, the afterglow of the Big Bang, work that earned the pair the 1978 Nobel Prize in Physics." },
-    { name:"Nan&ccedil;ay Radio Telescope", loc:"Nan&ccedil;ay, France", lat:47.3733, lon:2.1958, cat:"radio",
+    { name:"Nan\u00e7ay Radio Telescope", loc:"Nan&ccedil;ay, France", lat:47.3733, lon:2.1958, cat:"radio",
       type:"Transit reflector (Kraus-type)", aperture:"300 &times; 35 m equivalent", built:"1965",
       text:"A fixed flat mirror and a tiltable spherical reflector work together to catch radio waves without any moving dish. It has run one of the longest continuous pulsar-timing programs in the world and searches for the faint radio afterglow of fast radio bursts." },
     { name:"Sardinia Radio Telescope", loc:"San Basilio, Sardinia, Italy", lat:39.4930, lon:9.2451, cat:"radio",
@@ -596,7 +969,7 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     { name:"Medicina Radio Telescope", loc:"Medicina, Italy", lat:44.5199, lon:11.6461, cat:"radio",
       type:"Fully steerable dish", aperture:"32 m", built:"1983",
       text:"Italy's largest fully steerable radio dish, used for VLBI geodesy and pulsar studies, and part of the global network that images the shadows of supermassive black holes." },
-    { name:"Toru&#324; Radio Telescope", loc:"Piwnice, Poland", lat:53.0947, lon:18.5586, cat:"radio",
+    { name:"Toru\u0144 Radio Telescope", loc:"Piwnice, Poland", lat:53.0947, lon:18.5586, cat:"radio",
       type:"Steerable dish", aperture:"32 m", built:"1994",
       text:"Poland's largest radio telescope, used for pulsar research and joint European VLBI observations that achieve resolutions far sharper than any single dish alone." },
     { name:"Very Long Baseline Array (Pie Town)", loc:"Pie Town, New Mexico, USA", lat:34.3012, lon:-108.1189, cat:"radio",
@@ -768,6 +1141,223 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
       type:"Underground cryogenic laser interferometer", aperture:"3 km arms", built:"2020",
       text:"Built deep underground and cooled to cryogenic temperatures to minimize vibration and thermal noise, KAGRA gives the global gravitational-wave network its first Asian detector." }
   ];
+  TELESCOPES.forEach(function(t){ t.kind = 'ground'; });
+
+  /* ---------------- space telescopes ---------------- */
+
+  var SPACE_TELESCOPES = [
+    { name:"Hubble Space Telescope", loc:"Low Earth orbit, ~540 km altitude", cat:"visible",
+      type:"Reflecting space telescope", aperture:"2.4 m primary mirror", built:"1990",
+      ring:"leo", angle0:0,
+      text:"Launched aboard Space Shuttle Discovery and serviced five times by astronauts, Hubble orbits above the blur of Earth's atmosphere to deliver some of the sharpest optical and ultraviolet images ever taken. Its deep-field exposures have captured galaxies as they appeared over 13 billion years ago and helped pin down the age and expansion rate of the universe." },
+    { name:"James Webb Space Telescope", loc:"Sun&ndash;Earth L2, ~1.5 million km from Earth", cat:"infrared",
+      type:"Segmented-mirror infrared space telescope", aperture:"6.5 m primary mirror (18 segments)", built:"2021",
+      ring:"l2", angle0:0,
+      text:"Unfolded in space after launch and shielded from the Sun by a tennis-court-sized sunshield, Webb observes in infrared light cold enough to reveal the very first galaxies to form after the Big Bang. It has also captured detailed spectra of exoplanet atmospheres, searching for water, carbon dioxide, and other telltale molecules." },
+    { name:"Chandra X-ray Observatory", loc:"Highly elliptical Earth orbit, up to ~139,000 km", cat:"xray",
+      type:"Grazing-incidence X-ray telescope", aperture:"1.2 m mirror assembly", built:"1999",
+      ring:"heo", angle0:0,
+      text:"Launched aboard Space Shuttle Columbia, Chandra's looping orbit carries it a third of the way to the Moon, keeping it above Earth's radiation belts for long, uninterrupted exposures. Its mirrors, polished to atomic smoothness, focus X-rays from black holes, supernova remnants, and galaxy clusters far too hot to be seen in visible light." },
+    { name:"Spitzer Space Telescope", loc:"Earth-trailing heliocentric orbit (retired 2020)", cat:"infrared",
+      type:"Cryogenic infrared space telescope", aperture:"0.85 m mirror", built:"2003",
+      ring:"helio", angle0:0,
+      text:"Rather than orbiting Earth, Spitzer trailed slowly behind the planet around the Sun, drifting far enough away that Earth's own heat couldn't swamp its infrared detectors. It discovered several of the seven roughly Earth-sized planets around the star TRAPPIST-1 before running out of coolant and being decommissioned in 2020." },
+    { name:"Kepler Space Telescope", loc:"Earth-trailing heliocentric orbit (retired 2018)", cat:"visible",
+      type:"Photometric space telescope", aperture:"0.95 m aperture", built:"2009",
+      ring:"helio", angle0:Math.PI,
+      text:"Kepler stared at a single patch of sky for years, watching for the tiny periodic dimming of starlight as planets crossed in front of their host stars. That single mission found more than 2,600 confirmed exoplanets, transforming scientists' understanding of how common planets are, before its fuel ran out in 2018." },
+    { name:"TESS", loc:"Highly elliptical Earth orbit, 2:1 resonance with the Moon", cat:"visible",
+      type:"Wide-field photometric survey telescope", aperture:"4 &times; 10.5 cm cameras", built:"2018",
+      ring:"heo", angle0:2.1,
+      text:"TESS scans nearly the whole sky in overlapping strips, watching bright, nearby stars for the transits of orbiting planets. Its unusual lunar-resonant orbit keeps it stable for decades without much fuel, and it has flagged thousands of planet candidates for follow-up by larger telescopes like Webb." },
+    { name:"Gaia", loc:"Sun&ndash;Earth L2, ~1.5 million km from Earth", cat:"visible",
+      type:"Astrometric space telescope", aperture:"Twin 1.45 &times; 0.5 m mirrors", built:"2013",
+      ring:"l2", angle0:Math.PI,
+      text:"Gaia repeatedly measures the position, distance, and motion of well over a billion stars, building the most precise three-dimensional map of the Milky Way ever made. Its catalog underpins modern galactic archaeology, tracing streams of stars torn from smaller galaxies the Milky Way has consumed." },
+    { name:"XMM-Newton", loc:"Highly elliptical Earth orbit, up to ~114,000 km", cat:"xray",
+      type:"Grazing-incidence X-ray telescope", aperture:"Three mirror modules, 58 nested shells each", built:"1999",
+      ring:"heo", angle0:4.2,
+      text:"ESA's X-ray flagship carries the largest mirrors ever flown for that purpose, gathering more X-ray photons than any telescope before it. Its long, elliptical orbit gives uninterrupted views for tracking flares from supermassive black holes and the hot gas that fills clusters of galaxies." },
+    { name:"Fermi Gamma-ray Space Telescope", loc:"Low Earth orbit, ~535 km altitude", cat:"gamma",
+      type:"Pair-conversion gamma-ray telescope", aperture:"Large Area Telescope, 1.8 m&sup2; effective area", built:"2008",
+      ring:"leo", angle0:Math.PI,
+      text:"Fermi scans the entire sky every three hours, watching for gamma-ray bursts, flaring blazars, and pulsars flashing billions of times more energetically than anything producible on Earth. It has also mapped a mysterious pair of gamma-ray-glowing bubbles towering above and below the plane of the Milky Way." }
+  ];
+  SPACE_TELESCOPES.forEach(function(t){ t.kind = 'space'; });
+
+  /* ---------------- combined roster / ids ---------------- */
+
+  function slugify(name){
+    return name
+      .normalize('NFKD').replace(/\p{M}/gu,'')
+      .toLowerCase()
+      .replace(/&[a-z]+;/g,' ')
+      .replace(/[^a-z0-9]+/g,'-')
+      .replace(/^-+|-+$/g,'');
+  }
+
+  var ALL = TELESCOPES.concat(SPACE_TELESCOPES);
+  ALL.forEach(function(t, i){ t.id = slugify(t.name) || ('telescope-'+i); });
+
+  var AKA = {
+    "Very Large Array":["VLA"],
+    "Atacama Large Millimeter/submillimeter Array":["ALMA"],
+    "Five-hundred-meter Aperture Spherical Telescope":["FAST"],
+    "Green Bank Telescope":["GBT"],
+    "MeerKAT":["MeerKAT"],
+    "W. M. Keck Observatory":["Keck"],
+    "Very Large Telescope":["VLT"],
+    "James Clerk Maxwell Telescope":["JCMT"],
+    "South Pole Telescope":["SPT"],
+    "Vera C. Rubin Observatory":["Rubin Observatory","LSST"],
+    "Atacama Cosmology Telescope":["ACT"],
+    "Murchison Widefield Array":["MWA"],
+    "Australian SKA Pathfinder":["ASKAP"],
+    "Giant Metrewave Radio Telescope":["GMRT","uGMRT"],
+    "IceCube Neutrino Observatory":["IceCube"],
+    "Pierre Auger Observatory":["Auger Observatory"],
+    "Gran Telescopio Canarias":["GTC"],
+    "Subaru Telescope":["Subaru"],
+    "Large Binocular Telescope":["LBT"],
+    "Southern African Large Telescope":["SALT"],
+    "NASA Infrared Telescope Facility":["IRTF"],
+    "United Kingdom Infrared Telescope":["UKIRT"],
+    "VERITAS":["VERITAS"],
+    "KM3NeT":["KM3NeT"],
+    "Sardinia Radio Telescope":["SRT"],
+    "Westerbork Synthesis Radio Telescope":["WSRT"],
+    "Allen Telescope Array":["ATA"],
+    "RATAN-600":["RATAN-600"],
+    "Hubble Space Telescope":["Hubble","HST"],
+    "James Webb Space Telescope":["JWST","Webb","James Webb Space Telescope"],
+    "Chandra X-ray Observatory":["Chandra"],
+    "Spitzer Space Telescope":["Spitzer"],
+    "Kepler Space Telescope":["Kepler"],
+    "TESS":["TESS","Transiting Exoplanet Survey Satellite"],
+    "Gaia":["Gaia mission","Gaia satellite"],
+    "XMM-Newton":["XMM-Newton","XMM"],
+    "Fermi Gamma-ray Space Telescope":["Fermi","Fermi-LAT","Fermi telescope"],
+    "LIGO Hanford":["LIGO"],
+    "LIGO Livingston":["LIGO"],
+    "Virgo Interferometer":["Virgo detector"]
+  };
+  ALL.forEach(function(t){ t.aka = AKA[t.name] || []; });
+
+  var SITES = {
+    "Very Large Array": "https://public.nrao.edu/telescopes/vla/",
+    "Arecibo Observatory": "https://en.wikipedia.org/wiki/Arecibo_Observatory",
+    "Five-hundred-meter Aperture Spherical Telescope": "https://fast.bao.ac.cn/",
+    "Green Bank Telescope": "https://greenbankobservatory.org/science/telescopes/gbt/",
+    "Parkes Observatory": "https://www.parkes.atnf.csiro.au/",
+    "MeerKAT": "https://www.sarao.ac.za/science/meerkat/",
+    "Effelsberg 100-m Telescope": "https://www.mpifr-bonn.mpg.de/en/effelsberg",
+    "Lovell Telescope": "https://www.jb.man.ac.uk/aboutus/lovell/",
+    "Atacama Large Millimeter/submillimeter Array": "https://www.almaobservatory.org/",
+    "James Clerk Maxwell Telescope": "https://www.eaobservatory.org/jcmt/",
+    "IRAM 30-m Telescope": "https://iram-institute.org/observatories/30-meter-telescope/",
+    "South Pole Telescope": "https://pole.uchicago.edu/",
+    "W. M. Keck Observatory": "https://keckobservatory.org/",
+    "Very Large Telescope": "https://www.eso.org/public/teles-instr/paranal-observatory/vlt/",
+    "Gran Telescopio Canarias": "https://www.gtc.iac.es/",
+    "Subaru Telescope": "https://subarutelescope.org/en/",
+    "Gemini North": "https://noirlab.edu/public/programs/gemini-observatory/gemini-north/",
+    "Gemini South": "https://noirlab.edu/public/programs/gemini-observatory/gemini-south/",
+    "Large Binocular Telescope": "https://www.lbto.org/",
+    "Magellan Telescopes": "https://www.lco.cl/magellan-telescopes/",
+    "Palomar Observatory": "https://sites.astro.caltech.edu/palomar/",
+    "Southern African Large Telescope": "https://www.salt.ac.za/",
+    "NASA Infrared Telescope Facility": "https://irtfweb.ifa.hawaii.edu/",
+    "United Kingdom Infrared Telescope": "https://about.ifa.hawaii.edu/ukirt/",
+    "VISTA": "https://www.eso.org/public/teles-instr/paranal-observatory/surveytelescopes/vista/",
+    "H.E.S.S.": "https://www.mpi-hd.mpg.de/hfm/HESS/",
+    "MAGIC Telescopes": "https://magic.mpp.mpg.de/",
+    "VERITAS": "https://veritas.sao.arizona.edu/",
+    "IceCube Neutrino Observatory": "https://icecube.wisc.edu/",
+    "Super-Kamiokande": "https://www-sk.icrr.u-tokyo.ac.jp/en/sk/",
+    "Pierre Auger Observatory": "https://www.auger.org/",
+    "KM3NeT": "https://www.km3net.org/",
+    "Holmdel Horn Antenna": "https://en.wikipedia.org/wiki/Holmdel_Horn_Antenna",
+    "Nançay Radio Telescope": "https://www.obs-nancay.fr/",
+    "Sardinia Radio Telescope": "http://www.srt.inaf.it/",
+    "Murchison Widefield Array": "https://www.mwatelescope.org/",
+    "Australian SKA Pathfinder": "https://www.atnf.csiro.au/projects/askap/index.html",
+    "Giant Metrewave Radio Telescope": "https://www.gmrt.ncra.tifr.res.in/",
+    "Westerbork Synthesis Radio Telescope": "https://www.astron.nl/telescopes/wsrt-apertif/",
+    "Onsala Space Observatory": "https://www.chalmers.se/en/infrastructure/oso/",
+    "Yebes 40m Radio Telescope": "https://astronomia.ign.es/en/icts-yebes/servicios-radiotelescopio-40m",
+    "Haystack Observatory": "https://www.haystack.mit.edu/",
+    "Allen Telescope Array": "https://www.seti.org/projects/ata/",
+    "Ooty Radio Telescope": "https://www.ncra.tifr.res.in/ort",
+    "RATAN-600": "https://www.sao.ru/ratan/",
+    "Medicina Radio Telescope": "https://www.med.ira.inaf.it/",
+    "Toruń Radio Telescope": "https://astro.umk.pl/en/science/instrumentarium/radiotelescopes/radiotelescope-rt4/",
+    "Very Long Baseline Array (Pie Town)": "https://public.nrao.edu/telescopes/vlba/",
+    "Goldstone Deep Space Complex": "https://www.gdscc.nasa.gov/",
+    "Tidbinbilla Deep Space Complex": "https://www.csiro.au/en/about/facilities-collections/international-facilities/cdscc",
+    "Atacama Pathfinder Experiment": "https://www.apex-telescope.org/ns/",
+    "Large Millimeter Telescope": "https://www.lmtgtm.org/",
+    "Nobeyama Radio Observatory": "https://www.nro.nao.ac.jp/en/",
+    "Atacama Cosmology Telescope": "https://act.princeton.edu/",
+    "BICEP / Keck Array": "https://www.cfa.harvard.edu/facilities-technology/telescopes-instruments/bicep",
+    "Simons Observatory": "https://simonsobservatory.org/",
+    "IRAM NOEMA": "https://iram-institute.org/observatories/noema/",
+    "Fred Young Submillimeter Telescope": "https://www.ccatobservatory.org/",
+    "Vera C. Rubin Observatory": "https://rubinobservatory.org/",
+    "Mayall Telescope": "https://noirlab.edu/public/programs/kitt-peak-national-observatory/nicholas-mayall-4m-telescope/",
+    "WIYN 3.5m Telescope": "https://www.wiyn.org/",
+    "Isaac Newton Telescope": "https://www.ing.iac.es/Astronomy/telescopes/int/index.html",
+    "William Herschel Telescope": "https://www.ing.iac.es/Astronomy/telescopes/wht/",
+    "Nordic Optical Telescope": "https://www.not.iac.es/",
+    "Telescopio Nazionale Galileo": "https://www.tng.iac.es/",
+    "Liverpool Telescope": "https://telescope.livjm.ac.uk/",
+    "Anglo-Australian Telescope": "https://aat.anu.edu.au/",
+    "ESO 3.6m Telescope": "https://www.eso.org/public/teles-instr/lasilla/36/",
+    "New Technology Telescope": "https://www.eso.org/public/teles-instr/lasilla/ntt/",
+    "Mount Wilson Observatory": "https://www.mtwilson.edu/",
+    "Lick Observatory": "https://www.lickobservatory.org/",
+    "McDonald Observatory": "https://mcdonald.utexas.edu/",
+    "Apache Point Observatory": "https://www.apo.nmsu.edu/",
+    "Lowell Discovery Telescope": "https://lowell.edu/research/telescopes-and-facilities/ldt/",
+    "Calar Alto Observatory": "https://www.caha.es/",
+    "Devasthal Optical Telescope": "https://www.aries.res.in/facilities/astronomical-telescopes/360cm-telescope",
+    "Thai National Telescope": "https://www.narit.or.th/en/observatory/thai-national-observatory",
+    "Special Astrophysical Observatory": "https://www.sao.ru/Doc-en/About/",
+    "Yerkes Observatory": "https://yerkesobservatory.org/",
+    "Lowell Observatory": "https://lowell.edu/",
+    "Xinglong Observatory": "http://english.nao.cas.cn/research/stations/202103/t20210321_265695.html",
+    "Zeiss-2000 Telescope": "http://www.inasan.ru/en/divisions/terskol/about_terskol/",
+    "Boyden Observatory": "https://www.ufs.ac.za/natagri/departments-and-divisions/physics-home/boyden/boyden-observatory-home",
+    "Purple Mountain Observatory": "https://english.pmo.cas.cn/",
+    "Okayama Astrophysical Observatory": "http://www.oao.nao.ac.jp/en/",
+    "Mount Stromlo Observatory": "https://rsaa.anu.edu.au/observatories/mount-stromlo-observatory",
+    "Wyoming Infrared Observatory": "https://www.uwyo.edu/physics/observatories/wiro.html",
+    "LHAASO": "https://english.ihep.cas.cn/lhaaso/",
+    "HAWC Observatory": "https://www.hawc-observatory.org/",
+    "Whipple Observatory": "https://www.cfa.harvard.edu/facilities-technology/cfa-facilities/fred-lawrence-whipple-observatory-mt-hopkins-az",
+    "LST-1 (CTA-North prototype)": "https://www.lst1.iac.es/index.html",
+    "Tibet ASgamma": "https://www.tibet-asg.org/",
+    "Sudbury Neutrino Observatory": "https://www.snolab.ca/experiment/sno-2/",
+    "Homestake Experiment": "https://sanfordlab.org/our-story",
+    "Telescope Array": "http://www.telescopearray.org/",
+    "Baikal-GVD": "https://baikalgvd.jinr.ru/",
+    "KamLAND": "https://www.awa.tohoku.ac.jp/en/kamland/About_KamLAND_eng.html",
+    "LIGO Hanford": "https://www.ligo.caltech.edu/WA",
+    "LIGO Livingston": "https://www.ligo.caltech.edu/LA",
+    "Virgo Interferometer": "https://www.virgo-gw.eu/",
+    "KAGRA": "https://gwcenter.icrr.u-tokyo.ac.jp/en/",
+    "Hubble Space Telescope": "https://science.nasa.gov/mission/hubble/",
+    "James Webb Space Telescope": "https://science.nasa.gov/mission/webb/",
+    "Chandra X-ray Observatory": "https://chandra.harvard.edu/",
+    "Spitzer Space Telescope": "https://science.nasa.gov/mission/spitzer/",
+    "Kepler Space Telescope": "https://science.nasa.gov/mission/kepler/",
+    "TESS": "https://science.nasa.gov/mission/tess/",
+    "Gaia": "https://www.cosmos.esa.int/web/gaia",
+    "XMM-Newton": "https://www.cosmos.esa.int/web/xmm-newton",
+    "Fermi Gamma-ray Space Telescope": "https://fermi.gsfc.nasa.gov/"
+  };
+  ALL.forEach(function(t){ t.site = SITES[t.name] || ''; });
+
+  var DISCOVERIES = {};
 
   /* ---------------- geometry / projection ---------------- */
 
@@ -941,7 +1531,21 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
 
   /* ---------------- markers ---------------- */
 
-  var markerEls = TELESCOPES.map(function(t, idx){
+  var markerEls = new Array(ALL.length);
+  var activeFilters = {};
+  Object.keys(CATS).forEach(function(k){ activeFilters[k] = true; });
+  var recentOnly = false;
+
+  function passesFilters(t){
+    if (!activeFilters[t.cat]) return false;
+    if (recentOnly && !DISCOVERIES[t.id]) return false;
+    return true;
+  }
+  function applyDiscoveryClass(el, t){
+    el.classList.toggle('discovery', !!DISCOVERIES[t.id]);
+  }
+
+  TELESCOPES.forEach(function(t, idx){
     var el = document.createElement('button');
     el.className = 'marker';
     el.type = 'button';
@@ -951,27 +1555,140 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     el.addEventListener('click', function(){ openDetail(idx); });
     markersEl.appendChild(el);
     t._xyz = toXYZ(t.lon, t.lat);
-    return el;
+    markerEls[idx] = el;
   });
-
-  var activeFilters = {};
-  Object.keys(CATS).forEach(function(k){ activeFilters[k] = true; });
 
   function updateMarkers(){
     for (var i=0;i<TELESCOPES.length;i++){
       var t = TELESCOPES[i], el = markerEls[i];
       var rp = rotatePoint(t._xyz);
-      var on = activeFilters[t.cat];
-      if (!on){ el.dataset.hidden = '1'; continue; }
+      if (!passesFilters(t)){ el.dataset.hidden = '1'; continue; }
       var fade = (rp[2] + 0.06) / 0.18;
       if (fade <= 0){ el.dataset.hidden = '1'; continue; }
       el.dataset.hidden = '';
+      applyDiscoveryClass(el, t);
       var pp = project(rp);
       el.style.left = pp[0]+'px';
       el.style.top = pp[1]+'px';
       el.style.opacity = Math.min(1, fade);
       el.style.zIndex = String(1000 + Math.round(rp[2]*1000));
     }
+  }
+
+  /* ---------------- space view (orbital diagram) ---------------- */
+
+  var spaceWrap = document.getElementById('spaceWrap');
+  var spaceSvg = document.getElementById('spaceSvg');
+  var spaceMarkersEl = document.getElementById('spaceMarkers');
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var RING_GEOM = {};
+  var RING_SPEED = { leo:0.7*(2*Math.PI)/16, heo:0.7*(2*Math.PI)/42, l2:0.7*(2*Math.PI)/70, helio:0.7*(2*Math.PI)/110 };
+  var spaceAngle = {};
+  SPACE_TELESCOPES.forEach(function(t){ spaceAngle[t.id] = t.angle0 || 0; });
+  var lastSpaceTick = null;
+
+  function svgEl(tag, attrs){
+    var e = document.createElementNS(SVGNS, tag);
+    Object.keys(attrs).forEach(function(k){ e.setAttribute(k, attrs[k]); });
+    return e;
+  }
+
+  function buildSpaceSvg(size){
+    var cx = size/2, cy = size/2;
+    var earthR = size*0.085;
+
+    RING_GEOM.leo   = { cx:cx, cy:cy, rx:size*0.16, ry:size*0.058 };
+    RING_GEOM.heo   = { cx:cx, cy:cy, rx:size*0.30, ry:size*0.11 };
+    RING_GEOM.l2    = { cx:cx + size*0.31, cy:cy - size*0.13, rx:size*0.065, ry:size*0.026 };
+    RING_GEOM.helio = { cx:cx - size*0.31, cy:cy + size*0.17, rx:size*0.07,  ry:size*0.03 };
+
+    while (spaceSvg.firstChild) spaceSvg.removeChild(spaceSvg.firstChild);
+
+    var defs = svgEl('defs', {});
+    var grad = svgEl('radialGradient', { id:'spaceEarthGrad', cx:'36%', cy:'30%', r:'75%' });
+    grad.appendChild(svgEl('stop', { offset:'0%',  'stop-color':'#c7c9cd' }));
+    grad.appendChild(svgEl('stop', { offset:'42%', 'stop-color':'#5f7fae' }));
+    grad.appendChild(svgEl('stop', { offset:'78%', 'stop-color':'#233b63' }));
+    grad.appendChild(svgEl('stop', { offset:'100%','stop-color':'#0f1a2e' }));
+    defs.appendChild(grad);
+    spaceSvg.appendChild(defs);
+
+    spaceSvg.appendChild(svgEl('line', { class:'orbit-link', x1:cx, y1:cy, x2:RING_GEOM.l2.cx,    y2:RING_GEOM.l2.cy }));
+    spaceSvg.appendChild(svgEl('line', { class:'orbit-link', x1:cx, y1:cy, x2:RING_GEOM.helio.cx, y2:RING_GEOM.helio.cy }));
+
+    ['leo','heo','l2','helio'].forEach(function(k){
+      var g = RING_GEOM[k];
+      spaceSvg.appendChild(svgEl('ellipse', { class:'orbit-ring', cx:g.cx, cy:g.cy, rx:g.rx, ry:g.ry }));
+    });
+
+    spaceSvg.appendChild(svgEl('circle', {
+      cx:cx, cy:cy, r:earthR, fill:'url(#spaceEarthGrad)',
+      stroke:'rgba(255,255,255,0.18)', 'stroke-width':1
+    }));
+
+    function label(x, y, text, anchor){
+      var t = svgEl('text', { class:'orbit-label', x:x, y:y, 'text-anchor':anchor||'middle' });
+      t.textContent = text;
+      spaceSvg.appendChild(t);
+    }
+    label(cx, RING_GEOM.leo.cy - RING_GEOM.leo.ry - 8, 'Low Earth orbit');
+    label(cx, RING_GEOM.heo.cy + RING_GEOM.heo.ry + 16, 'High Earth orbit');
+    label(RING_GEOM.l2.cx, RING_GEOM.l2.cy - RING_GEOM.l2.ry - 10, 'Sun–Earth L2 · ~1.5M km');
+    label(RING_GEOM.helio.cx, RING_GEOM.helio.cy + RING_GEOM.helio.ry + 16, 'Earth-trailing orbit');
+  }
+
+  function resizeSpace(){
+    var w = spaceWrap.clientWidth, h = spaceWrap.clientHeight;
+    var size = Math.max(220, Math.min(w, h) - 24);
+    spaceSvg.setAttribute('viewBox', '0 0 ' + size + ' ' + size);
+    spaceSvg.style.width = size+'px';
+    spaceSvg.style.height = size+'px';
+    spaceSvg.style.position = 'absolute';
+    spaceSvg.style.left = ((w-size)/2)+'px';
+    spaceSvg.style.top = ((h-size)/2)+'px';
+    spaceMarkersEl.style.width = size+'px';
+    spaceMarkersEl.style.height = size+'px';
+    spaceMarkersEl.style.left = ((w-size)/2)+'px';
+    spaceMarkersEl.style.top = ((h-size)/2)+'px';
+    buildSpaceSvg(size);
+  }
+
+  SPACE_TELESCOPES.forEach(function(t, i){
+    var globalIdx = TELESCOPES.length + i;
+    var el = document.createElement('button');
+    el.className = 'marker marker-space';
+    el.type = 'button';
+    el.style.background = CATS[t.cat].hex;
+    el.setAttribute('aria-label', t.name);
+    el.dataset.idx = globalIdx;
+    el.addEventListener('click', function(){ openDetail(globalIdx); });
+    spaceMarkersEl.appendChild(el);
+    markerEls[globalIdx] = el;
+  });
+
+  function updateSpaceMarkers(){
+    var now = performance.now();
+    var dt = lastSpaceTick ? Math.min(0.25, (now - lastSpaceTick)/1000) : 0;
+    lastSpaceTick = now;
+
+    SPACE_TELESCOPES.forEach(function(t, i){
+      var globalIdx = TELESCOPES.length + i;
+      var el = markerEls[globalIdx];
+      if (!passesFilters(t)){ el.dataset.hidden = '1'; return; }
+      el.dataset.hidden = '';
+      applyDiscoveryClass(el, t);
+
+      spaceAngle[t.id] = (spaceAngle[t.id] || 0) + (RING_SPEED[t.ring] || 0.05) * dt;
+      var g = RING_GEOM[t.ring];
+      if (!g) return;
+      var a = spaceAngle[t.id];
+      var px = g.cx + Math.cos(a)*g.rx;
+      var py = g.cy + Math.sin(a)*g.ry;
+      el.style.left = px+'px';
+      el.style.top = py+'px';
+      el.style.opacity = String(0.6 + 0.4*((Math.sin(a)+1)/2));
+      el.style.zIndex = String(1000 + Math.round(py));
+    });
   }
 
   /* ---------------- interaction ---------------- */
@@ -1012,17 +1729,22 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
   /* ---------------- animation loop ---------------- */
 
   function tick(){
-    if (!dragging){
-      rot.yaw += vel.yaw;
-      rot.pitch += vel.pitch;
-      rot.pitch = Math.max(-1.35, Math.min(1.35, rot.pitch));
-      vel.yaw *= userInteracted ? 0.94 : 1;
-      vel.pitch *= 0.94;
-      if (Math.abs(vel.yaw) < 0.00005 && userInteracted) vel.yaw = 0;
-      if (Math.abs(vel.pitch) < 0.00005) vel.pitch = 0;
+    var view = document.body.dataset.view || 'globe';
+    if (view === 'globe'){
+      if (!dragging){
+        rot.yaw += vel.yaw;
+        rot.pitch += vel.pitch;
+        rot.pitch = Math.max(-1.35, Math.min(1.35, rot.pitch));
+        vel.yaw *= userInteracted ? 0.94 : 1;
+        vel.pitch *= 0.94;
+        if (Math.abs(vel.yaw) < 0.00005 && userInteracted) vel.yaw = 0;
+        if (Math.abs(vel.pitch) < 0.00005) vel.pitch = 0;
+      }
+      drawGlobe();
+      updateMarkers();
+    } else if (view === 'space'){
+      updateSpaceMarkers();
     }
-    drawGlobe();
-    updateMarkers();
     requestAnimationFrame(tick);
   }
 
@@ -1031,7 +1753,7 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
   var chipsEl = document.getElementById('chips');
   var chipEls = {};
   Object.keys(CATS).forEach(function(key){
-    var count = TELESCOPES.filter(function(t){ return t.cat===key; }).length;
+    var count = ALL.filter(function(t){ return t.cat===key; }).length;
     var btn = document.createElement('button');
     btn.className = 'chip';
     btn.type = 'button';
@@ -1043,6 +1765,7 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
       return function(){
         activeFilters[k] = !activeFilters[k];
         b.setAttribute('aria-pressed', String(activeFilters[k]));
+        renderList();
       };
     }(key, btn));
     chipsEl.appendChild(btn);
@@ -1054,12 +1777,14 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
       activeFilters[k] = true;
       chipEls[k].setAttribute('aria-pressed','true');
     });
+    renderList();
   });
   document.getElementById('btnNone').addEventListener('click', function(){
     Object.keys(CATS).forEach(function(k){
       activeFilters[k] = false;
       chipEls[k].setAttribute('aria-pressed','false');
     });
+    renderList();
   });
 
   /* ---------------- detail panel ---------------- */
@@ -1074,24 +1799,48 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     return Math.abs(lat).toFixed(2)+'&deg;'+ns+', '+Math.abs(lon).toFixed(2)+'&deg;'+ew;
   }
 
+  function fmtDate(iso){
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+    } catch(e){ return ''; }
+  }
+
+  function discoveryHtml(t){
+    var d = DISCOVERIES[t.id];
+    if (!d) return '';
+    return '<div class="detail-discovery">' +
+      '<div class="dh"><span class="dot"></span>Latest discovery</div>' +
+      '<p class="dtitle">'+d.title+'</p>' +
+      '<p>'+d.summary+'</p>' +
+      '<a href="'+d.url+'" target="_blank" rel="noopener">Read the full article &rarr;</a>' +
+      '<div class="ddate">Published '+fmtDate(d.published)+'</div>' +
+    '</div>';
+  }
+
   function openDetail(idx){
     activeIdx = idx;
     markerEls.forEach(function(el,i){ el.classList.toggle('active', i===idx); });
-    var t = TELESCOPES[idx], cat = CATS[t.cat];
+    var t = ALL[idx], cat = CATS[t.cat];
+    var lastSpecRow = t.kind === 'space'
+      ? '<div><div class="k">Orbit</div><div class="v">'+t.loc+'</div></div>'
+      : '<div><div class="k">Coordinates</div><div class="v">'+fmtCoord(t.lat,t.lon)+'</div></div>';
     detailBody.innerHTML =
       '<span class="detail-badge"><span class="swatch" style="background:'+cat.hex+'"></span>'+cat.label+'</span>' +
       '<h3>'+t.name+'</h3>' +
       '<p class="detail-loc">'+t.loc+'</p>' +
+      (t.site ? '<a class="detail-site" href="'+t.site+'" target="_blank" rel="noopener">Official website &rarr;</a>' : '') +
       '<div class="specs">' +
         '<div><div class="k">Type</div><div class="v">'+t.type+'</div></div>' +
         '<div><div class="k">Aperture</div><div class="v">'+t.aperture+'</div></div>' +
-        '<div><div class="k">Completed</div><div class="v">'+t.built+'</div></div>' +
-        '<div><div class="k">Coordinates</div><div class="v">'+fmtCoord(t.lat,t.lon)+'</div></div>' +
+        '<div><div class="k">'+(t.kind==='space'?'Launched':'Completed')+'</div><div class="v">'+t.built+'</div></div>' +
+        lastSpecRow +
       '</div>' +
-      '<p class="copy">'+t.text+'</p>';
+      '<p class="copy">'+t.text+'</p>' +
+      discoveryHtml(t);
     detail.classList.add('open');
     detail.setAttribute('aria-hidden','false');
     backdrop.classList.add('show');
+    syncListActive();
   }
   function closeDetail(){
     detail.classList.remove('open');
@@ -1099,19 +1848,259 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     backdrop.classList.remove('show');
     markerEls.forEach(function(el){ el.classList.remove('active'); });
     activeIdx = -1;
+    syncListActive();
   }
   document.getElementById('detailClose').addEventListener('click', closeDetail);
   backdrop.addEventListener('click', closeDetail);
   window.addEventListener('keydown', function(e){ if (e.key==='Escape') closeDetail(); });
 
+  /* ---------------- list view (alphabetical browse) ---------------- */
+
+  var listScroll = document.getElementById('listScroll');
+  var listSearch = document.getElementById('listSearch');
+  var listCount = document.getElementById('listCount');
+  var listRowEls = [];
+
+  function syncListActive(){
+    listRowEls.forEach(function(row){
+      row.classList.toggle('active', parseInt(row.dataset.idx, 10) === activeIdx);
+    });
+  }
+
+  function renderList(){
+    var q = listSearch.value.trim().toLowerCase();
+    var items = ALL.map(function(t, idx){ return { t:t, idx:idx }; })
+      .filter(function(o){
+        if (!passesFilters(o.t)) return false;
+        if (!q) return true;
+        return o.t.name.toLowerCase().indexOf(q) !== -1 || o.t.loc.toLowerCase().indexOf(q) !== -1;
+      })
+      .sort(function(a, b){ return a.t.name.localeCompare(b.t.name); });
+
+    listCount.textContent = items.length + ' of ' + ALL.length;
+
+    if (!items.length){
+      listScroll.innerHTML = '<div class="list-empty">No observatories match your search.</div>';
+      listRowEls = [];
+      return;
+    }
+
+    listScroll.innerHTML = items.map(function(o){
+      var ddot = DISCOVERIES[o.t.id] ? '<span class="ddot" title="Recent discovery"></span>' : '';
+      return '<button type="button" class="list-row" data-idx="'+o.idx+'">' +
+        '<span class="swatch" style="background:'+CATS[o.t.cat].hex+'"></span>' +
+        '<span class="rname">'+o.t.name+'</span>' +
+        ddot +
+        '<span class="rloc">'+o.t.loc+'</span>' +
+      '</button>';
+    }).join('');
+
+    listRowEls = Array.prototype.slice.call(listScroll.querySelectorAll('.list-row'));
+    listRowEls.forEach(function(row){
+      row.addEventListener('click', function(){
+        openDetail(parseInt(row.dataset.idx, 10));
+      });
+    });
+    syncListActive();
+  }
+
+  listSearch.addEventListener('input', renderList);
+
+  var viewSpaceBtn = document.getElementById('viewSpaceBtn');
+  var viewGlobeBtn = document.getElementById('viewGlobeBtn');
+  var viewListBtn = document.getElementById('viewListBtn');
+  function setView(mode){
+    document.body.dataset.view = mode;
+    viewSpaceBtn.setAttribute('aria-pressed', String(mode === 'space'));
+    viewGlobeBtn.setAttribute('aria-pressed', String(mode === 'globe'));
+    viewListBtn.setAttribute('aria-pressed', String(mode === 'list'));
+    if (mode === 'list') renderList();
+    if (mode === 'space'){ lastSpaceTick = null; resizeSpace(); }
+  }
+  viewSpaceBtn.addEventListener('click', function(){ setView('space'); });
+  viewGlobeBtn.addEventListener('click', function(){ setView('globe'); });
+  viewListBtn.addEventListener('click', function(){ setView('list'); });
+
   /* ---------------- stats ---------------- */
 
   document.getElementById('stats').innerHTML =
-    '<b>'+TELESCOPES.length+'</b> observatories &nbsp;&middot;&nbsp; <b>'+Object.keys(CATS).length+'</b> spectra';
+    '<b>'+ALL.length+'</b> observatories &nbsp;&middot;&nbsp; <b>'+Object.keys(CATS).length+'</b> spectra';
+
+  document.getElementById('todayTag').textContent =
+    new Date().toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  /* ---------------- recent discoveries (live feed) ---------------- */
+
+  var discoveryToggle = document.getElementById('discoveryToggle');
+  var discoveryCountEl = document.getElementById('discoveryCount');
+  var discoveryStatusEl = document.getElementById('discoveryStatus');
+  var DISCOVERY_CACHE_KEY = 'telescopeExplorer.discoveries.v1';
+  var DISCOVERY_INTERVAL_MS = 2 * 60 * 60 * 1000; // check every 2 hours
+
+  function escapeRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function textMentionsTelescope(text, t){
+    var hay = ' ' + text.toLowerCase() + ' ';
+    var terms = [t.name].concat(t.aka || []);
+    for (var i=0; i<terms.length; i++){
+      var term = terms[i].replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (!term) continue;
+      var re = new RegExp('(^|[^a-z0-9])' + escapeRe(term) + '($|[^a-z0-9])');
+      if (re.test(hay)) return true;
+    }
+    return false;
+  }
+
+  function shortSummary(text, limit){
+    text = text.replace(/\s+/g, ' ').trim();
+    if (text.length <= limit) return text;
+    var cut = text.slice(0, limit);
+    var lastSpace = cut.lastIndexOf(' ');
+    if (lastSpace > limit * 0.6) cut = cut.slice(0, lastSpace);
+    return cut + '&hellip;';
+  }
+
+  var CORS_PROXIES = [
+    function(u){ return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
+    function(u){ return 'https://corsproxy.io/?url=' + encodeURIComponent(u); }
+  ];
+
+  function fetchViaProxy(url){
+    function tryProxy(i){
+      if (i >= CORS_PROXIES.length) return Promise.reject(new Error('all discovery proxies failed'));
+      return fetch(CORS_PROXIES[i](url)).then(function(r){
+        if (!r.ok) throw new Error('proxy status ' + r.status);
+        return r.text();
+      }).catch(function(){ return tryProxy(i+1); });
+    }
+    return tryProxy(0);
+  }
+
+  function fetchArxivEntries(){
+    var q = 'search_query=cat:astro-ph*+OR+cat:gr-qc+OR+cat:hep-ex' +
+      '&sortBy=submittedDate&sortOrder=descending&max_results=300';
+    var url = 'https://export.arxiv.org/api/query?' + q;
+    return fetchViaProxy(url).then(function(xmlText){
+      var doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+      var entries = Array.prototype.slice.call(doc.getElementsByTagName('entry'));
+      return entries.map(function(entry){
+        function get(tag){
+          var el = entry.getElementsByTagName(tag)[0];
+          return el ? el.textContent.trim() : '';
+        }
+        return {
+          title: get('title').replace(/\s+/g, ' '),
+          summary: get('summary').replace(/\s+/g, ' '),
+          url: get('id'),
+          published: new Date(get('published'))
+        };
+      });
+    });
+  }
+
+  function fetchNasaEntries(){
+    return fetch('https://www.nasa.gov/feed/').then(function(r){
+      if (!r.ok) throw new Error('nasa feed status ' + r.status);
+      return r.text();
+    }).then(function(xmlText){
+      var doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+      var items = Array.prototype.slice.call(doc.getElementsByTagName('item'));
+      return items.map(function(item){
+        function get(tag){
+          var el = item.getElementsByTagName(tag)[0];
+          return el ? el.textContent.trim() : '';
+        }
+        return {
+          title: get('title'),
+          summary: get('description').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+          url: get('link'),
+          published: new Date(get('pubDate'))
+        };
+      });
+    });
+  }
+
+  function onDiscoveriesUpdated(statusNote){
+    var n = Object.keys(DISCOVERIES).length;
+    discoveryCountEl.textContent = String(n);
+    discoveryStatusEl.innerHTML = statusNote || ('Checked ' +
+      new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) +
+      ' &middot; next check in 2h &middot; via arXiv & NASA');
+    updateMarkers();
+    if ((document.body.dataset.view || 'globe') === 'space') updateSpaceMarkers();
+    renderList();
+    if (activeIdx >= 0) openDetail(activeIdx);
+  }
+
+  function refreshDiscoveries(){
+    discoveryStatusEl.innerHTML = 'Checking for new discoveries&hellip;';
+    var weekAgo = Date.now() - 7*24*60*60*1000;
+
+    Promise.all([
+      fetchArxivEntries().catch(function(e){ console.warn('arXiv feed unavailable', e); return []; }),
+      fetchNasaEntries().catch(function(e){ console.warn('NASA feed unavailable', e); return []; })
+    ]).then(function(results){
+      var entries = results[0].concat(results[1])
+        .filter(function(e){ return e.published && !isNaN(e.published.getTime()) && e.published.getTime() >= weekAgo; })
+        .sort(function(a, b){ return b.published - a.published; });
+
+      var found = {};
+      entries.forEach(function(e){
+        ALL.forEach(function(t){
+          if (found[t.id]) return;
+          if (textMentionsTelescope(e.title + ' ' + e.summary, t)){
+            found[t.id] = {
+              title: e.title,
+              summary: shortSummary(e.summary, 240),
+              url: e.url,
+              published: e.published.toISOString()
+            };
+          }
+        });
+      });
+
+      DISCOVERIES = found;
+      try {
+        localStorage.setItem(DISCOVERY_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), data: found }));
+      } catch(e){}
+      onDiscoveriesUpdated();
+    }).catch(function(err){
+      console.warn('Discovery refresh failed', err);
+      discoveryStatusEl.innerHTML = 'Live discovery feed unavailable right now &middot; will retry later.';
+    });
+  }
+
+  discoveryToggle.addEventListener('click', function(){
+    recentOnly = !recentOnly;
+    discoveryToggle.setAttribute('aria-pressed', String(recentOnly));
+    updateMarkers();
+    if ((document.body.dataset.view || 'globe') === 'space') updateSpaceMarkers();
+    renderList();
+  });
+
+  (function bootDiscoveries(){
+    var cached = null;
+    try { cached = JSON.parse(localStorage.getItem(DISCOVERY_CACHE_KEY) || 'null'); } catch(e){}
+    var now = Date.now();
+    if (cached && cached.data && (now - cached.fetchedAt) < DISCOVERY_INTERVAL_MS){
+      DISCOVERIES = cached.data;
+      var age = now - cached.fetchedAt;
+      onDiscoveriesUpdated('Loaded cached results from ' +
+        new Date(cached.fetchedAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) +
+        ' &middot; next check in ' + Math.max(1, Math.round((DISCOVERY_INTERVAL_MS - age)/60000)) + 'm');
+      setTimeout(refreshDiscoveries, DISCOVERY_INTERVAL_MS - age);
+    } else {
+      refreshDiscoveries();
+    }
+    setInterval(refreshDiscoveries, DISCOVERY_INTERVAL_MS);
+  })();
 
   /* ---------------- boot ---------------- */
 
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', function(){
+    resize();
+    if ((document.body.dataset.view || 'globe') === 'space') resizeSpace();
+  });
   resize();
   requestAnimationFrame(tick);
 
