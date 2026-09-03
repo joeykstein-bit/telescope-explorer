@@ -1246,7 +1246,11 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     { name:"Fermi Gamma-ray Space Telescope", loc:"Low Earth orbit, ~535 km altitude", cat:"gamma",
       type:"Pair-conversion gamma-ray telescope", aperture:"Large Area Telescope, 1.8 m&sup2; effective area", built:"2008",
       ring:"leo", angle0:Math.PI,
-      text:"Fermi scans the entire sky every three hours, watching for gamma-ray bursts, flaring blazars, and pulsars flashing billions of times more energetically than anything producible on Earth. It has also mapped a mysterious pair of gamma-ray-glowing bubbles towering above and below the plane of the Milky Way." }
+      text:"Fermi scans the entire sky every three hours, watching for gamma-ray bursts, flaring blazars, and pulsars flashing billions of times more energetically than anything producible on Earth. It has also mapped a mysterious pair of gamma-ray-glowing bubbles towering above and below the plane of the Milky Way." },
+    { name:"Nancy Grace Roman Space Telescope", loc:"Sun&ndash;Earth L2, ~1.5 million km from Earth", cat:"infrared",
+      type:"Wide-field infrared survey space telescope", aperture:"2.4 m primary mirror", built:"2026",
+      ring:"l2", angle0:Math.PI/2,
+      text:"Launched in August 2026, Roman carries a mirror the same size as Hubble's but paired with a camera roughly 200 times wider, letting it capture huge swaths of sky in near-infrared light in a single exposure. Its wide-field surveys are designed to trace the distribution of dark matter and dark energy across billions of years of cosmic history and to find thousands of new exoplanets through gravitational microlensing." }
   ];
   SPACE_TELESCOPES.forEach(function(t){ t.kind = 'space'; });
 
@@ -1302,6 +1306,7 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     "Gaia":["Gaia mission","Gaia satellite"],
     "XMM-Newton":["XMM-Newton","XMM"],
     "Fermi Gamma-ray Space Telescope":["Fermi","Fermi-LAT","Fermi telescope"],
+    "Nancy Grace Roman Space Telescope":["Roman","Roman Space Telescope","WFIRST"],
     "LIGO Hanford":["LIGO"],
     "LIGO Livingston":["LIGO"],
     "Virgo Interferometer":["Virgo detector"]
@@ -1418,7 +1423,8 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     "TESS": "https://science.nasa.gov/mission/tess/",
     "Gaia": "https://www.cosmos.esa.int/web/gaia",
     "XMM-Newton": "https://www.cosmos.esa.int/web/xmm-newton",
-    "Fermi Gamma-ray Space Telescope": "https://fermi.gsfc.nasa.gov/"
+    "Fermi Gamma-ray Space Telescope": "https://fermi.gsfc.nasa.gov/",
+    "Nancy Grace Roman Space Telescope": "https://science.nasa.gov/mission/roman-space-telescope/"
   };
   ALL.forEach(function(t){ t.site = SITES[t.name] || ''; });
 
