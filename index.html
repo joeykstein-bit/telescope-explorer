@@ -756,6 +756,11 @@
     color:var(--text-faint);
     margin-top:8px;
   }
+  .detail-discovery .ditem + .ditem{
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid rgba(255,225,77,0.25);
+  }
 
   /* ---------- backdrop for mobile sheet ---------- */
   .backdrop{
@@ -854,7 +859,7 @@
             <span class="label">Only show recent discoveries</span>
             <span class="count" id="discoveryCount">0</span>
           </button>
-          <div class="discovery-status" id="discoveryStatus">Checking for new discoveries&hellip;</div>
+          <div class="discovery-status" id="discoveryStatus">Loading recent discoveries&hellip;</div>
         </div>
       </div>
     </nav>
@@ -1156,6 +1161,9 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     { name:"Mount Stromlo Observatory", loc:"Canberra, Australia", lat:-35.3206, lon:149.0069, cat:"visible",
       type:"Reflector (rebuilt)", aperture:"1.9 m", built:"1955",
       text:"Australia's national optical observatory, largely rebuilt after a 2003 bushfire destroyed most of its historic telescopes, now focused on satellite tracking and astronomical instrumentation." },
+    { name:"Canada-France-Hawaii Telescope", loc:"Mauna Kea, Hawaii, USA", lat:19.8253, lon:-155.4689, cat:"visible",
+      type:"Reflector", aperture:"3.6 m", built:"1979",
+      text:"Run jointly by Canada, France and the University of Hawai&#699;i, this telescope pioneered wide-field imaging on Mauna Kea. Its MegaCam surveys mapped dark matter through weak gravitational lensing, and its SPIRou spectropolarimeter hunts for planets around cool red dwarf stars." },
 
     { name:"Wyoming Infrared Observatory", loc:"Jelm Mountain, Wyoming, USA", lat:41.0964, lon:-105.9856, cat:"infrared",
       type:"Reflector", aperture:"2.3 m", built:"1977",
@@ -1249,8 +1257,16 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
       text:"Fermi scans the entire sky every three hours, watching for gamma-ray bursts, flaring blazars, and pulsars flashing billions of times more energetically than anything producible on Earth. It has also mapped a mysterious pair of gamma-ray-glowing bubbles towering above and below the plane of the Milky Way." },
     { name:"Nancy Grace Roman Space Telescope", loc:"Sun&ndash;Earth L2, ~1.5 million km from Earth", cat:"infrared",
       type:"Wide-field infrared survey space telescope", aperture:"2.4 m primary mirror", built:"2026",
+      ring:"l2", angle0:Math.PI/4,
+      text:"Launched in August 2026, Roman carries a mirror the same size as Hubble's but paired with a camera roughly 200 times wider, letting it capture huge swaths of sky in near-infrared light in a single exposure. Its wide-field surveys are designed to trace the distribution of dark matter and dark energy across billions of years of cosmic history and to find thousands of new exoplanets through gravitational microlensing." },
+    { name:"Euclid", loc:"Sun&ndash;Earth L2, ~1.5 million km from Earth", cat:"visible",
+      type:"Wide-field survey space telescope", aperture:"1.2 m primary mirror", built:"2023",
       ring:"l2", angle0:Math.PI/2,
-      text:"Launched in August 2026, Roman carries a mirror the same size as Hubble's but paired with a camera roughly 200 times wider, letting it capture huge swaths of sky in near-infrared light in a single exposure. Its wide-field surveys are designed to trace the distribution of dark matter and dark energy across billions of years of cosmic history and to find thousands of new exoplanets through gravitational microlensing." }
+      text:"ESA's Euclid maps the shapes and distances of billions of galaxies across a third of the sky, measuring how dark matter and dark energy have shaped the universe over the last ten billion years. Its visible-light imager and near-infrared spectrometer observe at the same time, producing exceptionally sharp wide-field images." },
+    { name:"PRIMA", loc:"Proposed for Sun&ndash;Earth L2", cat:"infrared",
+      type:"Cryogenic far-infrared space telescope (proposed)", aperture:"1.8 m primary mirror", built:"Proposed, 2030s",
+      ring:"l2", angle0:3*Math.PI/2,
+      text:"The PRobe far-Infrared Mission for Astrophysics is a proposed NASA probe-class observatory built around a cryogenically cooled 1.8 m telescope. It would reopen the far-infrared window left dark since Herschel and Spitzer, tracing how dust, gas and heavy elements build up in galaxies and how planetary systems form." }
   ];
   SPACE_TELESCOPES.forEach(function(t){ t.kind = 'space'; });
 
@@ -1307,6 +1323,9 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     "XMM-Newton":["XMM-Newton","XMM"],
     "Fermi Gamma-ray Space Telescope":["Fermi","Fermi-LAT","Fermi telescope"],
     "Nancy Grace Roman Space Telescope":["Roman","Roman Space Telescope","WFIRST"],
+    "Canada-France-Hawaii Telescope":["CFHT"],
+    "PRIMA":["PRobe far-Infrared Mission for Astrophysics"],
+    "LST-1 (CTA-North prototype)":["LST-1","CTAO","CTAO-North","Cherenkov Telescope Array"],
     "LIGO Hanford":["LIGO"],
     "LIGO Livingston":["LIGO"],
     "Virgo Interferometer":["Virgo detector"]
@@ -1424,7 +1443,10 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     "Gaia": "https://www.cosmos.esa.int/web/gaia",
     "XMM-Newton": "https://www.cosmos.esa.int/web/xmm-newton",
     "Fermi Gamma-ray Space Telescope": "https://fermi.gsfc.nasa.gov/",
-    "Nancy Grace Roman Space Telescope": "https://science.nasa.gov/mission/roman-space-telescope/"
+    "Nancy Grace Roman Space Telescope": "https://science.nasa.gov/mission/roman-space-telescope/",
+    "Canada-France-Hawaii Telescope": "https://www.cfht.hawaii.edu/",
+    "Euclid": "https://www.esa.int/Science_Exploration/Space_Science/Euclid",
+    "PRIMA": "https://prima.ipac.caltech.edu/"
   };
   ALL.forEach(function(t){ t.site = SITES[t.name] || ''; });
 
@@ -1908,15 +1930,28 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
     } catch(e){ return ''; }
   }
 
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+  function safeUrl(u){ return /^https?:\/\//i.test(String(u || '')) ? String(u) : ''; }
+
+  // Discovery rows come from the shared database, so everything is escaped.
   function discoveryHtml(t){
-    var d = DISCOVERIES[t.id];
-    if (!d) return '';
+    var items = DISCOVERIES[t.id];
+    if (!items) return '';
     return '<div class="detail-discovery">' +
-      '<div class="dh"><span class="dot"></span>Latest discovery</div>' +
-      '<p class="dtitle">'+d.title+'</p>' +
-      '<p>'+d.summary+'</p>' +
-      '<a href="'+d.url+'" target="_blank" rel="noopener">Read the full article &rarr;</a>' +
-      '<div class="ddate">Published '+fmtDate(d.published)+'</div>' +
+      '<div class="dh"><span class="dot"></span>'+(items.length > 1 ? 'Recent discoveries' : 'Latest discovery')+'</div>' +
+      items.slice(0, 3).map(function(d){
+        var url = safeUrl(d.url);
+        return '<div class="ditem">' +
+          '<p class="dtitle">'+escapeHtml(d.title)+'</p>' +
+          (d.summary ? '<p>'+escapeHtml(d.summary)+'</p>' : '') +
+          (url ? '<a href="'+escapeHtml(url)+'" target="_blank" rel="noopener">Read the full article &rarr;</a>' : '') +
+          '<div class="ddate">'+(d.source ? escapeHtml(d.source)+' &middot; ' : '')+'Published '+escapeHtml(fmtDate(d.published))+'</div>' +
+        '</div>';
+      }).join('') +
     '</div>';
   }
 
@@ -1976,7 +2011,8 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
       .filter(function(o){
         if (!passesFilters(o.t)) return false;
         if (!q) return true;
-        return o.t.name.toLowerCase().indexOf(q) !== -1 || o.t.loc.toLowerCase().indexOf(q) !== -1;
+        return o.t.name.toLowerCase().indexOf(q) !== -1 || o.t.loc.toLowerCase().indexOf(q) !== -1 ||
+          o.t.aka.some(function(a){ return a.toLowerCase().indexOf(q) !== -1; });
       })
       .sort(function(a, b){ return a.t.name.localeCompare(b.t.name); });
 
@@ -2032,145 +2068,53 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
   document.getElementById('todayTag').textContent =
     new Date().toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
-  /* ---------------- recent discoveries (live feed) ---------------- */
+  /* ---------------- recent discoveries (artifact database) ---------------- */
+
+  // A daily cloud routine scrapes each observatory's news pages and writes
+  //   discoveries/<telescope id>  { items:[{title, summary, url, published, source}] }
+  //   meta/scraper               { lastRun, sitesChecked }
+  // The page only reads; anything older than the window is dropped here too,
+  // so stale rows fade out even if a scan is missed.
 
   var discoveryToggle = document.getElementById('discoveryToggle');
   var discoveryCountEl = document.getElementById('discoveryCount');
   var discoveryStatusEl = document.getElementById('discoveryStatus');
-  var DISCOVERY_CACHE_KEY = 'telescopeExplorer.discoveries.v1';
-  var DISCOVERY_INTERVAL_MS = 2 * 60 * 60 * 1000; // check every 2 hours
+  var DISCOVERY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
-  function escapeRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  var rawDiscoveries = {};
+  var scraperMeta = null;
 
-  function textMentionsTelescope(text, t){
-    var hay = ' ' + text.toLowerCase() + ' ';
-    var terms = [t.name].concat(t.aka || []);
-    for (var i=0; i<terms.length; i++){
-      var term = terms[i].replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-      if (!term) continue;
-      var re = new RegExp('(^|[^a-z0-9])' + escapeRe(term) + '($|[^a-z0-9])');
-      if (re.test(hay)) return true;
-    }
-    return false;
-  }
-
-  function shortSummary(text, limit){
-    text = text.replace(/\s+/g, ' ').trim();
-    if (text.length <= limit) return text;
-    var cut = text.slice(0, limit);
-    var lastSpace = cut.lastIndexOf(' ');
-    if (lastSpace > limit * 0.6) cut = cut.slice(0, lastSpace);
-    return cut + '&hellip;';
-  }
-
-  var CORS_PROXIES = [
-    function(u){ return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
-    function(u){ return 'https://corsproxy.io/?url=' + encodeURIComponent(u); }
-  ];
-
-  function fetchViaProxy(url){
-    function tryProxy(i){
-      if (i >= CORS_PROXIES.length) return Promise.reject(new Error('all discovery proxies failed'));
-      return fetch(CORS_PROXIES[i](url)).then(function(r){
-        if (!r.ok) throw new Error('proxy status ' + r.status);
-        return r.text();
-      }).catch(function(){ return tryProxy(i+1); });
-    }
-    return tryProxy(0);
-  }
-
-  function fetchArxivEntries(){
-    var q = 'search_query=cat:astro-ph*+OR+cat:gr-qc+OR+cat:hep-ex' +
-      '&sortBy=submittedDate&sortOrder=descending&max_results=300';
-    var url = 'https://export.arxiv.org/api/query?' + q;
-    return fetchViaProxy(url).then(function(xmlText){
-      var doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-      var entries = Array.prototype.slice.call(doc.getElementsByTagName('entry'));
-      return entries.map(function(entry){
-        function get(tag){
-          var el = entry.getElementsByTagName(tag)[0];
-          return el ? el.textContent.trim() : '';
-        }
-        return {
-          title: get('title').replace(/\s+/g, ' '),
-          summary: get('summary').replace(/\s+/g, ' '),
-          url: get('id'),
-          published: new Date(get('published'))
-        };
-      });
+  function recomputeDiscoveries(){
+    var cutoff = Date.now() - DISCOVERY_WINDOW_MS;
+    var next = {};
+    Object.keys(rawDiscoveries).forEach(function(id){
+      var items = rawDiscoveries[id].filter(function(it){
+        var when = Date.parse(it && it.published);
+        return it && it.title && !isNaN(when) && when >= cutoff;
+      }).sort(function(a, b){ return Date.parse(b.published) - Date.parse(a.published); });
+      if (items.length) next[id] = items;
     });
+    DISCOVERIES = next;
   }
 
-  function fetchNasaEntries(){
-    return fetch('https://www.nasa.gov/feed/').then(function(r){
-      if (!r.ok) throw new Error('nasa feed status ' + r.status);
-      return r.text();
-    }).then(function(xmlText){
-      var doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-      var items = Array.prototype.slice.call(doc.getElementsByTagName('item'));
-      return items.map(function(item){
-        function get(tag){
-          var el = item.getElementsByTagName(tag)[0];
-          return el ? el.textContent.trim() : '';
-        }
-        return {
-          title: get('title'),
-          summary: get('description').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
-          url: get('link'),
-          published: new Date(get('pubDate'))
-        };
-      });
-    });
+  function scraperStatus(){
+    if (!scraperMeta || !scraperMeta.lastRun) return 'Waiting for the first daily scan&hellip;';
+    var when = new Date(scraperMeta.lastRun);
+    if (isNaN(when.getTime())) return 'Waiting for the first daily scan&hellip;';
+    var note = 'Updated ' + escapeHtml(when.toLocaleDateString(undefined, { month:'short', day:'numeric' })) +
+      ', ' + escapeHtml(when.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }));
+    if (scraperMeta.sitesChecked) note += ' &middot; ' + Number(scraperMeta.sitesChecked) + ' sites scanned';
+    return note;
   }
 
-  function onDiscoveriesUpdated(statusNote){
-    var n = Object.keys(DISCOVERIES).length;
-    discoveryCountEl.textContent = String(n);
-    discoveryStatusEl.innerHTML = statusNote || ('Checked ' +
-      new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) +
-      ' &middot; next check in 2h &middot; via arXiv & NASA');
+  function onDiscoveriesUpdated(){
+    recomputeDiscoveries();
+    discoveryCountEl.textContent = String(Object.keys(DISCOVERIES).length);
+    discoveryStatusEl.innerHTML = scraperStatus();
     updateMarkers();
     if ((document.body.dataset.view || 'globe') === 'space') updateSpaceMarkers();
     renderList();
     if (activeIdx >= 0) openDetail(activeIdx);
-  }
-
-  function refreshDiscoveries(){
-    discoveryStatusEl.innerHTML = 'Checking for new discoveries&hellip;';
-    var weekAgo = Date.now() - 7*24*60*60*1000;
-
-    Promise.all([
-      fetchArxivEntries().catch(function(e){ console.warn('arXiv feed unavailable', e); return []; }),
-      fetchNasaEntries().catch(function(e){ console.warn('NASA feed unavailable', e); return []; })
-    ]).then(function(results){
-      var entries = results[0].concat(results[1])
-        .filter(function(e){ return e.published && !isNaN(e.published.getTime()) && e.published.getTime() >= weekAgo; })
-        .sort(function(a, b){ return b.published - a.published; });
-
-      var found = {};
-      entries.forEach(function(e){
-        ALL.forEach(function(t){
-          if (found[t.id]) return;
-          if (textMentionsTelescope(e.title + ' ' + e.summary, t)){
-            found[t.id] = {
-              title: e.title,
-              summary: shortSummary(e.summary, 240),
-              url: e.url,
-              published: e.published.toISOString()
-            };
-          }
-        });
-      });
-
-      DISCOVERIES = found;
-      try {
-        localStorage.setItem(DISCOVERY_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), data: found }));
-      } catch(e){}
-      onDiscoveriesUpdated();
-    }).catch(function(err){
-      console.warn('Discovery refresh failed', err);
-      discoveryStatusEl.innerHTML = 'Live discovery feed unavailable right now &middot; will retry later.';
-    });
   }
 
   discoveryToggle.addEventListener('click', function(){
@@ -2182,20 +2126,34 @@ const LAND=[[[180,-16.1,180,-16.6,179.4,-16.8,178.7,-17,178.6,-16.6,179.1,-16.4,
   });
 
   (function bootDiscoveries(){
-    var cached = null;
-    try { cached = JSON.parse(localStorage.getItem(DISCOVERY_CACHE_KEY) || 'null'); } catch(e){}
-    var now = Date.now();
-    if (cached && cached.data && (now - cached.fetchedAt) < DISCOVERY_INTERVAL_MS){
-      DISCOVERIES = cached.data;
-      var age = now - cached.fetchedAt;
-      onDiscoveriesUpdated('Loaded cached results from ' +
-        new Date(cached.fetchedAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) +
-        ' &middot; next check in ' + Math.max(1, Math.round((DISCOVERY_INTERVAL_MS - age)/60000)) + 'm');
-      setTimeout(refreshDiscoveries, DISCOVERY_INTERVAL_MS - age);
-    } else {
-      refreshDiscoveries();
+    var c = window.claude;
+    if (!c || typeof c.use !== 'function'){
+      discoveryStatusEl.innerHTML = 'Recent discoveries load when this page is opened on claude.ai.';
+      return;
     }
-    setInterval(refreshDiscoveries, DISCOVERY_INTERVAL_MS);
+    c.use('db').then(function(db){
+      if (!db){
+        discoveryStatusEl.innerHTML = 'Recent discoveries are unavailable in this view.';
+        return;
+      }
+      db.collection('discoveries').onSnapshot(function(snap){
+        var next = {};
+        snap.docs.forEach(function(doc){
+          var body = doc.data();
+          if (body && Array.isArray(body.items)) next[doc.id] = body.items;
+        });
+        rawDiscoveries = next;
+        onDiscoveriesUpdated();
+      }, function(){
+        discoveryStatusEl.innerHTML = 'Discovery feed unavailable right now.';
+      });
+      db.doc('meta/scraper').onSnapshot(function(snap){
+        scraperMeta = snap.exists ? snap.data() : null;
+        discoveryStatusEl.innerHTML = scraperStatus();
+      }, function(){});
+    });
+    // Re-apply the 7-day window hourly so old items drop off an open page.
+    setInterval(onDiscoveriesUpdated, 60 * 60 * 1000);
   })();
 
   /* ---------------- boot ---------------- */
